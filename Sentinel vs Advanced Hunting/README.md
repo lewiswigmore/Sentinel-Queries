@@ -104,7 +104,7 @@ The following table illustrates the schema differences and how to convert querie
 
 ## Azure AD Service Principal Signin Logs
 
-[Provide an introduction to service principal sign-in logs, explaining their role in security monitoring and why they may be tracked differently between Sentinel and Advanced Hunting.]
+Service Principal sign-in logs are critical for security monitoring in Azure, as they track authentications by non-human accounts such as applications or services. Microsoft Sentinel stores these logs in specific tables, while Advanced Hunting uses a unified table approach. The distinction helps Sentinel offer detailed analytics, whereas Advanced Hunting simplifies threat hunting by consolidating data. Understanding the storage and categorization differences between platforms is crucial for effective security incident investigation and response.
 
 ### Service Principal Signins
 
@@ -144,7 +144,21 @@ AADSpnSignInEventsBeta
 
 ### Schema Differences
 
-[Detail the schema differences for service principal sign-in logs just like the previous section on user sign-ins.]
+The schema for Service Principal sign-in logs between Microsoft Sentinel and Advanced Hunting varies, as outlined in the table below. These differences reflect the unique design decisions of each platform to cater to their specific security monitoring objectives.
+
+| Sentinel Field                   | Advanced Hunting Field    | Description                                                                                            |
+|----------------------------------|---------------------------|--------------------------------------------------------------------------------------------------------|
+| `TimeGenerated`                  | `Timestamp`               | The timestamp indicating when the sign-in event was generated.                                         |
+| `AppDisplayName`                 | `Application`             | The display name of the application for which the service principal is authenticating.                 |
+| `AppId`                          | `ApplicationId`           | The unique identifier for the application associated with the service principal.                        |
+| `AADServicePrincipalSignInLogs`  | `AADSpnSignInEventsBeta`  | Sentinel separates regular and managed identity sign-ins into different tables, whereas Advanced Hunting uses a single table with a field to distinguish the two. |
+| `AADManagedIdentitySignInLogs`   | `AADSpnSignInEventsBeta`  | For managed identities, Sentinel uses a separate table, but Advanced Hunting uses a boolean field within a single table. |
+| `ResultType`                     | `ErrorCode`               | The result code associated with the service principal's sign-in attempt.                                |
+| `LocationDetails.city`           | `City`                    | The city derived from the IP address associated with the sign-in event.                                 |
+| `LocationDetails.countryOrRegion`| `Country`                 | The country or region derived from the IP address of the sign-in event.                                 |
+| `LocationDetails.geoCoordinates.latitude` | `Latitude`      | The latitude extracted from the geolocation details of the sign-in event.                               |
+| `LocationDetails.geoCoordinates.longitude` | `Longitude`   | The longitude extracted from the geolocation details of the sign-in event.                              |
+| `UserId`                         | `AccountObjectId`         | In Sentinel, `UserId` often refers to the service principal's ID, while Advanced Hunting uses `AccountObjectId`. |
 
 ## Best Practices
 
