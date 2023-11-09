@@ -84,7 +84,7 @@ AADSignInEventsBeta
 
 The following table illustrates the schema differences and how to convert queries between Sentinel and Advanced Hunting:
 
-| Sentinel Field       | Advanced Hunting Field    | Description                                                                                           |
+| Sentinel Field       | Advanced Hunting Field    | Description                |
 |------------------------------|---------------------------|-------------------------------------------------------------------------------------------------------|
 | `TimeGenerated`              | `Timestamp`               | Used to specify the date and time when the event was generated.                                       |
 | `UserPrincipalName`          | `AccountUpn`              | The username or principal name associated with the event.                                             |
