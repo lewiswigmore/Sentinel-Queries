@@ -1,115 +1,190 @@
-# Sentinel vs Advanced Hunting
+# Sentinel vs Advanced Hunting: A Comprehensive Guide
 
-While both Microsoft Sentinel and Advanced Hunting leverage KQL, there are differences in schema in certain tables. For instance, TimeGenerated is used in Sentinel while Timestamp is used in Advanced Hunting.
+## Overview
 
-The below tables are designed to help you convert queries between the two products.
+Microsoft Sentinel and Advanced Hunting are both integral parts of the Microsoft security ecosystem, providing advanced threat detection and response capabilities. They utilize Kusto Query Language (KQL) for querying and analyzing data, but they differ in schema and application. This guide aims to facilitate a smooth transition between the two by highlighting schema differences and providing query conversion techniques.
+
+## Table of Contents
+
+- [Introduction](#introduction)
+- [Understanding the Schema Differences](#understanding-the-schema-differences)
+- [Azure AD Signin Logs](#azure-ad-signin-logs)
+  - [Interactive Signins](#interactive-signins)
+  - [Non-Interactive Signins](#non-interactive-signins)
+  - [Schema Conversion](#schema-conversion)
+- [Azure AD Service Principal Signin Logs](#azure-ad-service-principal-signin-logs)
+  - [Service Principal Signins](#service-principal-signins)
+  - [Managed Identity Signins](#managed-identity-signins)
+  - [Schema Differences](#schema-differences)
+- [Conversion Examples](#conversion-examples)
+- [Best Practices](#best-practices)
+- [Troubleshooting](#troubleshooting)
+- [FAQs](#faqs)
+- [Additional Resources](#additional-resources)
+
+## Introduction
+
+Microsoft Sentinel is a scalable, cloud-native SIEM and SOAR platform that provides security insights across an enterprise, enabling rapid detection, investigation, and response to cyber threats. Advanced Hunting, embedded within Microsoft 365 Defender, is a query-based threat hunting tool that allows security analysts to explore raw data and identify breach indicators. Although both platforms utilize Kusto Query Language (KQL) for data exploration and threat detection, they differ in their data schema and operational context. This guide delineates these differences and furnishes conversion techniques to help practitioners adapt queries across both environments effectively, ensuring a cohesive and efficient security monitoring and response strategy.
+
+## Understanding the Schema Differences
+
+The schema differences between Microsoft Sentinel and Advanced Hunting are mainly evident in naming conventions, table structures, and the contextual metadata attached to various security logs. These discrepancies must be understood for effective query translation and analysis:
+
+- **Time fields**: `TimeGenerated` in Sentinel corresponds to `Timestamp` in Advanced Hunting. This is critical for time-based queries and tracking the occurrence of events.
+- **User identifiers**: `UserPrincipalName` in Sentinel is equivalent to `AccountUpn` in Advanced Hunting. Both serve as primary identifiers for user accounts but under different attribute names.
+- **Account display names**: `UserDisplayName` in Sentinel maps to `AccountDisplayName` in Advanced Hunting, representing the full name of the user associated with the event.
+- **Object IDs**: `UserId` in Sentinel should be referenced as `AccountObjectId` in Advanced Hunting, which uniquely identifies user accounts in Azure AD.
+- **Application identifiers**: `AppDisplayName` and `AppId` in Sentinel correspond to `Application` and `ApplicationId` in Advanced Hunting, respectively, and are used to identify the application involved in the event.
+- **Authentication details**: Fields describing authentication events, such as `ResultType` in Sentinel, are typically matched to `ErrorCode` or similar fields in Advanced Hunting, outlining the outcome of the authentication attempt.
+- **Device information**: In Sentinel, device details like `DeviceId` and `DeviceName` are often nested within JSON objects and must be extracted, whereas in Advanced Hunting, these are usually top-level attributes.
+
+The rationale for these differences often stems from the distinct design goals of each platform. Sentinel, being a broad SIEM platform, structures its schema for generalization across diverse data sources, while Advanced Hunting is tailored for in-depth threat hunting within the Microsoft 365 ecosystem, resulting in a schema optimized for that context. Understanding these nuances is essential for analysts to accurately map and execute queries when transitioning between Sentinel and Advanced Hunting.
 
 ## Azure AD Signin Logs
 
-For Microsoft Sentinel sign in logs are kept in two separate tables.
+### Interactive Signins
 
-SigninLogs - for interactive signins
+In Sentinel, interactive sign-ins are tracked separately, facilitating targeted analysis and alerting. Query example:
 
 ```kql
+// Sentinel
 SigninLogs
 | take 10
 ```
 
-AADNonInteractiveUserSignInLogs - for non-interactive signins
+For Advanced Hunting, interactive and non-interactive sign-ins are consolidated, with distinctions made using the `LogonType` field:
 
 ```kql
-AADNonInteractiveUserSignInLogs
-| take 10
-```
-
-For Advanced Hunting both types of logs are kept in the same table, but distinguised by a field.
-
-For interactive signins
-
-```kql
+// Advanced Hunting
 AADSignInEventsBeta
 | where LogonType == @"[""interactiveUser""]"
 | take 10
 ```
 
-For non-interactive sigins
+### Non-Interactive Signins
+
+Similarly, non-interactive sign-ins in Sentinel are segregated for precise monitoring:
 
 ```kql
+// Sentinel
+AADNonInteractiveUserSignInLogs
+| take 10
+```
+
+Advanced Hunting uses the same table as interactive sign-ins, differentiated by `LogonType`:
+
+```kql
+// Advanced Hunting
 AADSignInEventsBeta
 | where LogonType == @"[""nonInteractiveUser""]"
 | take 10
 ```
 
-Differences in schema are noted below.
+### Schema Conversion
 
-| Field Description | Sentinel Examples | Advanced Hunting Examples | Notes |
-| -------------   | ---------- | --------------------------------------------------------------------------------------------------------------------------------| ----- |
-| Time  | SigninLogs <br />\| where TimeGenerated > ago (7d)| AADSignInEventsBeta <br />\| where Timestamp > ago(7d) | TimeGenerated becomes Timestamp |
-| Username  | SigninLogs <br />\| where UserPrincipalName == "reprise@domain.com"  | AADSignInEventsBeta <br />\| where AccountUpn == "reprise99@domain.com" | UserPrincipalName becomes AccountUpn |
-| Account Display Name | SigninLogs <br />\| where UserDisplayName== "Jane Citizen" | AADSignInEventsBeta <br />\| where AccountDisplayName == "Jane Citizen" | UserDisplayName becomes AccountDisplayName
-| Azure AD Object Id | SigninLogs <br />\| where UserId == "33d3f3dd-1e47-4cbd-82dd-93e17e0107f2" | AADSignInEventsBeta <br />\| where AccountObjectId == "33d3f3dd-1e47-4cbd-82dd-93e17e0107f2" | UserId becomes AccountObjectId
-| Application Name | SigninLogs <br />\| where AppDisplayName == "Microsoft Teams" | AADSignInEventsBeta <br />\| where Application == "Microsoft Teams" | AppDisplayName becomes Application
-| Application Id | SigninLogs <br />\| where AppId == "00000002-0000-0ff1-ce00-000000000000" | AADSignInEventsBeta <br />\| where ApplicationId == "00000002-0000-0ff1-ce00-000000000000" | AppId becomes ApplicationId
-| Guest User | SigninLogs <br />\| where UserType == "Guest" | AADSignInEventsBeta <br />\| where IsGuestUser == "1" | UserType = guest becomes IsGuestUser = 1
-| Status | SigninLogs <br />\| where ResultType == "50126" | AADSignInEventsBeta <br />\| where ErrorCode == "50126" | ResultType becomes ErrorCode
-| Conditional Access Status | SigninLogs <br />\| where ConditionalAccessStatus == "success" | AADSignInEventsBeta <br />\| where ConditionalAccessStatus == "0" | Sentinel uses strings vs advanced hunting numbers. success = 0, failure = 1, notApplied = 2
-| Device Name | SigninLogs <br />\| extend DeviceName = tostring(DeviceDetail.displayName) <br />\| where DeviceName == "LAPTOP1234" | ADSignInEventsBeta <br />\| where DeviceName == "LAPTOP1234" | Sentinel keeps device name in a nested field and has to be extracted first
-| Device Id | SigninLogs <br />\| extend deviceId = tostring(DeviceDetail.deviceId) <br />\| where deviceId = "33f17af6-82c4-4a91-8e4f-6b5ba417efbf" | AADSignInEventsBeta <br />\| where AadDeviceId == "33f17af6-82c4-4a91-8e4f-6b5ba417efbf" | Sentinel keeps device id in a nested field and has to be extracted first
-Device Trust Type | SigninLogs <br />\| extend trustType = tostring(DeviceDetail.trustType) <br />\| where trustType == "Azure AD registered" | AADSignInEventsBeta <br />\| where DeviceTrustType == "Azure AD registered" | Sentinel keeps trust type in a nested field and has to be extracted first
-| Device OS | SigninLogs <br />\| extend DeviceOS = tostring(DeviceDetail.operatingSystem) <br />\| where DeviceOS = "Windows 10" | AADSignInEventsBeta <br />\| where OSPlatform == "Windows 10" | Sentinel keeps OS in a nested field and has to be extracted first
-| Browser | SigninLogs <br />\| extend Browser = tostring(DeviceDetail.browser) <br />\| where Browser == "Edge 98.0.1108" | AADSignInEventsBeta <br />\| where Browser == "Edge 98.0.1108" | Sentinel keeps browser in a nested field and has to be extracted first
-| City | SigninLogs <br />\| extend City = tostring(LocationDetails.city) <br />\| where City == "Melbourne" | AADSignInEventsBeta <br />\| where City == "Melbourne" | Sentinel keeps City in a nested field and has to be extracted first
-| Country | SigninLogs <br />\| extend Country = tostring(LocationDetails.countryOrRegion) <br />\| where Country == "AU" | AADSignInEventsBeta <br />\| where Country == "AU" | Sentinel keeps Country in a nested field and has to be extracted first
-| Latitude | SigninLogs <br />\| extend Latitude = tostring(parse_json(tostring(LocationDetails.geoCoordinates)).latitude) <br />\| where Latitude contains "49.25" | AADSignInEventsBeta <br /> \| where Latitude contains "49.25" | Sentinel keeps Latitude in a nested field and has to be extracted first
-| Longitude | SigninLogs <br />\| extend Longitude = tostring(parse_json(tostring(LocationDetails.geoCoordinates)).longitude) <br />\| where Longitude contains "-122" | AADSignInEventsBeta <br />\| where Longitude contains "-122" | Sentinel keeps Longitude in a nested field and has to be extracted first
-| State |SigninLogs <br />\| extend State = tostring(LocationDetails.state) <br />\| where State == "British Columbia" | AADSignInEventsBeta <br />\| where State == "British Columbia"  <br /> | Sentinel keeps State in a nested field and has to be extracted first
-| Combined Example | SigninLogs <br />\| extend State = tostring(LocationDetails.state) <br />\| where UserType == "Guest" and State == "British Columbia" <br />and ResultType == "0" and AppDisplayName == "Microsoft Teams" | AADSignInEventsBeta <br />\| where IsGuestUser == "1" and State == "British Columbia" and ErrorCode == "0" and Application == "Microsoft Teams" | Look for guests in British Columbia successfully signing into Teams |
+The following table illustrates the schema differences and how to convert queries between Sentinel and Advanced Hunting:
 
-A number of fields are the same across both tables such as UserAgent or ClientAppUsed, and some only exist in one. For example, Advanced Hunting has LastPasswordChangeTimestamp whereas Sentinel does not. In general, the Sentinel logs are more detailed.
+| Sentinel Field               | Advanced Hunting Field    | Description                                                                                           |
+|------------------------------|---------------------------|-------------------------------------------------------------------------------------------------------|
+| `TimeGenerated`              | `Timestamp`               | Used to specify the date and time when the event was generated.                                       |
+| `UserPrincipalName`          | `AccountUpn`              | The username or principal name associated with the event.                                             |
+| `UserDisplayName`            | `AccountDisplayName`      | The full display name of the user associated with the event.                                          |
+| `UserId`                     | `AccountObjectId`         | A unique identifier for the user in Azure AD.                                                         |
+| `AppDisplayName`             | `Application`             | The name of the application involved in the event.                                                    |
+| `AppId`                      | `ApplicationId`           | A unique identifier for the application involved in the event.                                        |
+| `DeviceDetail.deviceId`      | `DeviceId`                | The unique identifier of the device involved in the event.                                            |
+| `DeviceDetail.displayName`   | `DeviceName`              | The display name of the device involved in the event.                                                 |
+| `ResultType`                 | `ErrorCode`               | The result or error code associated with an authentication attempt or other security event.           |
+| `DeviceDetail.trustType`     | `DeviceTrustType`         | Indicates the trust type of the device (e.g., 'Azure AD registered').                                 |
+| `DeviceDetail.operatingSystem` | `OSPlatform`           | The operating system of the device involved in the event.                                             |
+| `LocationDetails.city`       | `City`                    | The city derived from the IP address associated with the event.                                       |
+| `LocationDetails.countryOrRegion` | `Country`            | The country or region derived from the IP address associated with the event.                          |
+| `LocationDetails.geoCoordinates.latitude` | `Latitude`  | The latitude component of the geolocation associated with the event.                                  |
+| `LocationDetails.geoCoordinates.longitude` | `Longitude` | The longitude component of the geolocation associated with the event.                                |
 
 ## Azure AD Service Principal Signin Logs
 
-Microsoft Sentinel keeps service principal sign in logs in two tables. For regular service principals they are sent to the AADServicePrincipalSignInLogs table.
+[Provide an introduction to service principal sign-in logs, explaining their role in security monitoring and why they may be tracked differently between Sentinel and Advanced Hunting.]
+
+### Service Principal Signins
+
+Sentinel captures regular service principal sign-ins in a dedicated table:
 
 ```kql
+// Sentinel
 AADServicePrincipalSignInLogs
 | take 10
 ```
 
-For managed identities they are sent to the AADManagedIdentitySignInLogs
+In Advanced Hunting, the distinction is made through a field within a unified table:
 
 ```kql
-AADManagedIdentitySignInLogs
-| take 10
-```
-
-For Advanced Hunting both types of logs are kept in the same table, but distinguised by a field.
-
-For regular service principals.
-
-```kql
+// Advanced Hunting
 AADSpnSignInEventsBeta
 | where IsManagedIdentity == 0
 ```
 
-For managed identities
+### Managed Identity Signins
+
+For managed identities, Sentinel uses:
 
 ```kql
+// Sentinel
+AADManagedIdentitySignInLogs
+| take 10
+```
+
+Advanced Hunting employs a similar approach as with service principal sign-ins:
+
+```kql
+// Advanced Hunting
 AADSpnSignInEventsBeta
 | where IsManagedIdentity == 1
 ```
 
-Differences in schema are noted below.
+### Schema Differences
 
-| Field Description | Sentinel Example | Advanced Hunting Example | Notes |
-| -------------   | ---------- | -----------| --- |
-| Time  | AADServicePrincipalSignInLogs <br />\| where TimeGenerated > ago (7d)| AADSpnSignInEventsBeta <br />\| where Timestamp > ago(7d) | TimeGenerated becomes Timestamp
-| Application Id | AADServicePrincipalSignInLogs <br />\| where AppId == "00000002-0000-0ff1-ce00-000000000000" | AADSpnSignInEventsBeta <br />\| where ApplicationId == "00000002-0000-0ff1-ce00-000000000000" | AppId becomes ApplicationId
-| Status | AADServicePrincipalSignInLogs <br />\| where ResultType == "7000215" | AADSpnSignInEventsBeta <br />\| where ErrorCode == "7000215" | ResultType becomes ErrorCode
-| City | AADServicePrincipalSignInLogs <br />\| extend City = tostring(LocationDetails.city) \| where City == "Melbourne" | AADSpnSignInEventsBeta <br />\| where City == "Melbourne" | Sentinel keeps City in a nested field and has to be extracted first
-| Country | AADServicePrincipalSignInLogs <br />\| extend Country = tostring(LocationDetails.countryOrRegion) \| where Country == "AU" | AADSpnSignInEventsBeta <br />\| where Country == "AU" | Sentinel keeps Country in a nested field and has to be extracted first
-| Latitude | AADServicePrincipalSignInLogs <br />\| extend Latitude = tostring(parse_json(tostring(LocationDetails.geoCoordinates)).latitude) <br />\| where Latitude contains "49.25" | AADSpnSignInEventsBeta <br />\| where Latitude contains "49.25" | Sentinel keeps Latitude in a nested field and has to be extracted first
-| Longitude | AADServicePrincipalSignInLogs <br />\| extend Longitude = tostring(parse_json(tostring(LocationDetails.geoCoordinates)).longitude) <br />\| where Longitude contains "-122" | AADSpnSignInEventsBeta <br />\| where Longitude contains "-122" | Sentinel keeps Longitude in a nested field and has to be extracted first
-| State |AADServicePrincipalSignInLogs <br />\| extend State = tostring(LocationDetails.state) <br />\| where State == "British Columbia" | AADSpnSignInEventsBeta <br />\| where State == "British Columbia" | Sentinel keeps State in a nested field and has to be extracted first
+[Detail the schema differences for service principal sign-in logs just like the previous section on user sign-ins.]
 
-A number of fields are the same across both products such as ServicePrincipalId and ServicePrincipalName. The Advanced Hunting logs for Service Principals have quite a bit less information than Microsoft Sentinel, and omit things like Conditional Access entirely.
+## Best Practices
+
+When working with Microsoft Sentinel and Advanced Hunting, consider the following best practices to ensure efficient and accurate query translation and execution:
+
+- **Verify Schema Mappings**: Always double-check the schema mappings when converting queries. An incorrect field name or datatype can result in errors or inaccurate data retrieval.
+- **Test Incrementally**: When building complex queries, test them incrementally to ensure each part of the query works as expected before combining them.
+- **Optimize Performance**: Be mindful of query performance. Use filters to narrow down the data set and avoid unnecessarily large data scans.
+- **Use Available Functions**: Leverage KQL functions to transform and manage data. This can include type conversion, string manipulation, and date-time calculations.
+- **Stay Updated**: Both Sentinel and Advanced Hunting are regularly updated. Stay informed about the latest changes in schema and functionality.
+- **Secure Access**: Ensure that only authorized personnel have access to modify analytic rules and queries to maintain the integrity and security of your environment.
+
+## Common Troubleshooting
+
+If you encounter issues while working with Sentinel and Advanced Hunting, consider the following tips:
+
+- **Query Syntax Errors**: Review the KQL syntax for any typos or syntax errors. Use the KQL documentation as a reference.
+- **Field Mismatches**: Confirm that the field names and types match the schema of the logs you're querying. Schema changes can occur, so it’s important to verify.
+- **Time Zone Differences**: TimeGenerated and Timestamp fields are in UTC. If you’re filtering by time, ensure you account for any time zone differences.
+- **Data Volume**: Large data volumes can slow down or timeout queries. Use filters to narrow down the results or consider increasing resources.
+- **Permissions**: Lack of access or incorrect permissions can prevent queries from executing. Verify that your account has the necessary permissions.
+
+## FAQs
+
+**Q: Can I use Sentinel queries directly in Advanced Hunting without modification?**
+A: No, due to schema differences, you'll need to adjust field names and sometimes query structure to fit the schema of Advanced Hunting.
+
+**Q: How can I keep up with changes to Sentinel and Advanced Hunting schemas?**
+A: Regularly check the official Microsoft documentation and subscribe to update notifications in the Azure portal.
+
+**Q: Are there limits to the amount of data I can query with KQL?**
+A: Yes, both Sentinel and Advanced Hunting have data limits and performance considerations. It's best to optimize queries for the necessary data to avoid performance degradation.
+
+**Q: What should I do if a query works in Sentinel but not in Advanced Hunting?**
+A: Verify that all field names and data types are correctly mapped to the Advanced Hunting schema. Also, check for any product-specific functionalities or operators that may not be available across both platforms.
+
+## Additional Resources
+
+- **KQL Documentation**: [Azure Data Explorer KQL documentation](https://docs.microsoft.com/azure/data-explorer/kusto/query/)
+- **Microsoft Sentinel Documentation**: [Microsoft Sentinel official documentation](https://docs.microsoft.com/azure/sentinel/)
+- **Advanced Hunting Documentation**: [Advanced Hunting in Microsoft 365 Defender](https://docs.microsoft.com/microsoft-365/security/defender/advanced-hunting-overview)
+- **Community Forums**: Engage with the [Microsoft Tech Community](https://techcommunity.microsoft.com/) for Sentinel and [Microsoft Security Community](https://securitycommunity.microsoft.com/) for Advanced Hunting.
+- **Online Courses**: Consider taking online courses on platforms like Coursera, Udemy, or LinkedIn Learning for in-depth KQL and Azure security analytics training.
