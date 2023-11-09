@@ -1,7 +1,18 @@
-// Finds tables containing _CL
+// Finds tables containing _CL and projects log count over a 30 day period with 12h interval
 
 union *
 | where TimeGenerated > ago(30d)
 | where Type has "_CL"
-| summarize Count = count() by bin(TimeGenerated, 1h), Type
+// | where Type !in ("") // Remove tables if required
+| summarize Count = count() by bin(TimeGenerated, 12h), Type
 | render timechart
+
+
+// Finds tables containing _CL and projects log count between timeframe with 1d interval
+
+union *
+| where TimeGenerated between (datetime(2023-06-01).. datetime(2023-11-30))
+| where Type has "_CL"
+// | where Type !in ("") // Remove tables if required
+| summarize Count = count() by bin(TimeGenerated, 1d), Type
+| render timechart 
