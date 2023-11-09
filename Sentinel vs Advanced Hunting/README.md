@@ -200,5 +200,6 @@ A: Verify that all field names and data types are correctly mapped to the Advanc
 - **KQL Documentation**: [Azure Data Explorer KQL documentation](https://docs.microsoft.com/azure/data-explorer/kusto/query/)
 - **Microsoft Sentinel Documentation**: [Microsoft Sentinel official documentation](https://docs.microsoft.com/azure/sentinel/)
 - **Advanced Hunting Documentation**: [Advanced Hunting in Microsoft 365 Defender](https://docs.microsoft.com/microsoft-365/security/defender/advanced-hunting-overview)
-- **Community Forums**: Engage with the [Microsoft Tech Community](https://techcommunity.microsoft.com/) for Sentinel and [Microsoft Security Community](https://securitycommunity.microsoft.com/) for Advanced Hunting.
+- **Community Forums**: Engage with the [Microsoft Tech Community](https://techcommunity.microsoft.com/)
+- **Certifications**: [Microsoft certifications](https://learn.microsoft.com/en-us/credentials/) From role-based certifications to new, scenario-specific applied skills, showcasing your proficiency with industry-trusted and verified credentials from Microsoft helps make you essential at your current workplace.
 - **Online Courses**: Consider taking online courses on platforms like Coursera, Udemy, or LinkedIn Learning for in-depth KQL and Azure security analytics training.
