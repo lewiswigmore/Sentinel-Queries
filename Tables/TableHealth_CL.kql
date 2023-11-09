@@ -1,0 +1,7 @@
+// Finds tables containing _CL
+
+union *
+| where TimeGenerated > ago(30d)
+| where Type has "_CL"
+| summarize Count = count() by bin(TimeGenerated, 1h), Type
+| render timechart
